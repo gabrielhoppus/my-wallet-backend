@@ -9,7 +9,7 @@ import bcrypt from 'bcrypt';
 import { v4 as uuid } from 'uuid';
 
 dotenv.config();
-const date = dayjs().format("hh:mm:ss");
+const date = dayjs().format("DD/MM");
 const app = express();
 app.use(express.json());
 app.use(cors());
@@ -26,7 +26,15 @@ client.connect()
         console.log(err);
     });
 
-app.post("/sign-up", async (req, res) => {
+app.get("/users", async (req, res) => {
+    await db.collection("users")
+        .find()
+        .toArray()
+        .then(data => { return res.send(data) })
+        .catch(() => { res.status(500).send("Erro!") });
+});
+
+app.post("/users", async (req, res) => {
     let { name, email, password, confirmation } = req.body;
     let emailCheck;
 
@@ -57,7 +65,7 @@ app.post("/sign-up", async (req, res) => {
     const passwordHash = bcrypt.hashSync(password, 10);
 
     if (emailCheck) {
-        res.status(409).send("Esse usuário já está cadastrad, tente novamente.");
+        res.status(409).send("Esse usuário já está cadastrado, tente novamente.");
         return;
     } else {
         try {
@@ -70,7 +78,7 @@ app.post("/sign-up", async (req, res) => {
     }
 })
 
-app.post("/sign-in", async (req, res) => {
+app.post("/sessions", async (req, res) => {
     let { email, password } = req.body;
 
     const userSChema = Joi.object({
@@ -89,15 +97,18 @@ app.post("/sign-in", async (req, res) => {
     password = stripHtml(password).result.trim();
 
     const user = await db.collection("users").findOne({ email });
+    const name = user.name
 
     if (user && bcrypt.compareSync(password, user.password)) {
         const token = uuid();
-
+        delete user.password;
         await db.collection("sessions").insertOne({
             userId: user._id, token
         })
 
-        res.status(201).send(token)
+        const body = { token, name }
+
+        res.status(201).send(body)
     } else {
         res.status(404).send("Usuário não encontrado. Email ou senha incorretos")
     }
@@ -119,14 +130,18 @@ app.get("/transactions", async (req, res) => {
         _id: session.userId
     })
 
+    const id = session.userId
+
     if (user) {
-        db.collection("transactions")
-            .find()
+        await db.collection("transactions")
+            .find({
+                "userId": { $in: [id] }
+            })
             .toArray()
-            .then(dados => { return res.send(dados) })
+            .then(data => { return res.status(200).send(data) })
             .catch(() => { res.status(500).send("Erro!") });
     } else {
-        res.sendStatus(401);
+        res.status(401).send("Erro!");
     }
 
 
@@ -138,7 +153,7 @@ app.post("/transactions", async (req, res) => {
     const token = authorization?.replace('Bearer ', '');
 
     const transactionSchema = Joi.object({
-        amount: Joi.number().required(),
+        amount: Joi.number().precision(2).options({ convert: false }).required(),
         description: Joi.string().required(),
         type: Joi.string().valid("entry", "exit").required()
     })
@@ -146,6 +161,7 @@ app.post("/transactions", async (req, res) => {
     if (!token) return res.sendStatus(401);
 
     const session = await db.collection("sessions").findOne({ token });
+
 
     if (!session) {
         return res.sendStatus(401);
@@ -155,48 +171,58 @@ app.post("/transactions", async (req, res) => {
         _id: session.userId
     })
 
-    const transactionValidation = transactionSchema.validate({ amount, description, type }, { abortEarly: false })
+
+    const transactionValidation = transactionSchema.validate(
+        { amount, description, type },
+        { abortEarly: false })
 
     if (transactionValidation.error) {
-        res.status(422).send(userValidation.error.details);
+        res.status(422).send(transactionValidation.error.details);
         return;
     }
 
     if (user) {
+        let value = Number(amount)
+        value = value.toFixed(2)
+        delete user.password;
         await db.collection("transactions").insertOne({
-            amount,
+            userId: session.userId,
+            amount: value,
             description,
-            type
+            type,
+            date
         })
+        res.status(201).send("Transação efetuada com sucesso!")
     } else {
         res.sendStatus(401);
     }
 
 })
 
+
 app.delete("/sessions", async (req, res) => {
     const { authorization } = req.headers;
     const token = authorization?.replace('Bearer ', '');
 
-    if (!token) return res.sendStatus(401);
+    if (!token) return res.status(401).send("Não autorizado");
 
     const session = await db.collection("sessions").findOne({ token });
 
     if (session) {
         await db.collection("sessions").deleteOne({ token });
-    }else {
-        return res.sendStatus(401);
+        res.status(201).send("Deletado com sucesso!")
+    } else {
+        return res.status(404).send("Sessão não encontrada");
     }
 })
 
-
-
-
-
-
-
-
-
+app.get("/sessions", async (req, res) => {
+    await db.collection("sessions")
+        .find()
+        .toArray()
+        .then(data => { return res.send(data) })
+        .catch(() => { res.status(500).send("Erro!") });
+});
 
 
 app.listen(process.env.PORT, () => {
