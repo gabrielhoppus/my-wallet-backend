@@ -6,11 +6,9 @@ import transactionRouter from "./routes/transactionRoutes.js";
 const app = express();
 app.use(express.json());
 app.use(cors());
-app.use([authRouter, transactionRouter])
-// app.get("/users", getUser);
-// app.get("/sessions", getSession);
+app.use([authRouter, transactionRouter]);
 
-const PORT = 5000
+const PORT = 5000;
 
 app.listen(PORT, () => {
     console.log(`Server running on port ${PORT}`);

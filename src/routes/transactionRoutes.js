@@ -9,13 +9,13 @@ transactionRouter.get(
     "/transactions",
     validateToken,
     getHistory
-)
+);
 
 transactionRouter.post(
     "/transactions",
     validateTransaction,
     validateToken,
     makeTransaction
-)
+);
 
 export default transactionRouter;

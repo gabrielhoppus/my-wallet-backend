@@ -57,7 +57,7 @@ export async function logOut(req, res) {
 
     if (session) {
         await db.collection("sessions").deleteOne({ token });
-        res.status(201).send("Deletado com sucesso!")
+        res.status(201).send("Deletado com sucesso!");
     } else {
         return res.status(404).send("Sessão não encontrada");
     }

@@ -14,12 +14,12 @@ export async function validateToken (req, res, next){
 
     const user = await db.collection("users").findOne({
         _id: session.userId
-    })
+    });
 
     if (user) {
         delete user.password;
-        res.locals.user = user
-        res.locals.session = session
+        res.locals.user = user;
+        res.locals.session = session;
     } else {
         res.sendStatus(401);
     }

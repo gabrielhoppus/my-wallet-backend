@@ -1,5 +1,5 @@
 import dayjs from "dayjs";
-import db from "../config/database.js"
+import db from "../config/database.js";
 const date = dayjs().format("DD/MM");
 
 export async function getHistory(req, res) {
@@ -34,10 +34,9 @@ export async function makeTransaction(req, res) {
             description,
             type,
             date
-        })
+        });
         res.status(201).send("Transação efetuada com sucesso!");
     } else {
         res.sendStatus(401);
     }
-
 }
